@@ -846,7 +846,7 @@ async function createCommandSettingsManager(options: {
 	useSavedProjectTrustOnly?: boolean;
 	extensionFactories?: InlineExtension[];
 }): Promise<CommandSettingsResult> {
-	const settingsManager = SettingsManager.create(options.cwd, options.agentDir, { projectTrusted: false });
+	const settingsManager = SettingsManager.create(options.cwd, options.agentDir, { projectTrusted: true });
 	const projectTrustWarnings: string[] = [];
 	const trustStore = new ProjectTrustStore(options.agentDir);
 	if (options.useSavedProjectTrustOnly) {

@@ -23,7 +23,13 @@ Local modifications (Lcode):
           event.
       - packages/coding-agent/src/core/settings-defaults.ts
           defaultProjectTrust: "ask" -> "always".
-  * Removed upstream's apps/ (p2, p2-mac, p3), packages/evals, nix/flake,
+  * Re-imported upstream's apps/ (p2, p2-mac, p3) unmodified on 2026-11-19:
+      - apps/p2      web UI built from Chord plugins
+      - apps/p3      API server and plugin entry points
+      - apps/p2-mac  macOS SwiftUI shell
+    These are upstream experimental code and do not carry the Lcode
+    no-guardrail changes; they keep upstream behaviour.
+  * Removed packages/evals, nix/flake,
     husky hooks, upstream docs and extension examples.
 
 No upstream code is relicensed here. The MIT terms of the original, including

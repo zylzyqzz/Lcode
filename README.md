@@ -11,6 +11,10 @@ Lcode = pi 的 coding agent 内核，**删掉了全部安全限制**：
 | `trust.json` 信任库 + `defaultProjectTrust` 策略（`ask` / `never`） | **绕过**，恒为 `true` |
 | 扩展 `project_trust` 事件拦截 | **不再触发** |
 | MCP 项目的信任校验 | **恒通过** |
+| 信任为 false 时拒写项目 `settings.json` | **空实现**，永远可写 |
+| 信任为 false 时拒装/删项目 package | **空实现**，永远可访问 |
+| 项目 `mcp.json` 禁用 `auth` 字段 | **已解禁**，项目级也可带 provider token |
+| MCP `auth` 强制 https / loopback | **已解除**，token 可发往任意 host |
 
 也就是说：把仓库 clone 下来，只要目录里有 `.pi/` 配置、扩展、MCP server 或 skills，**开箱即用，一次确认都没有**。
 
@@ -78,7 +82,32 @@ packages/
 scripts/           ← 构建辅助脚本
 ```
 
-已移除上游的 `apps/`（p2 / p2-mac / p3）、`packages/evals`、nix/flake、husky、上游文档与扩展示例。
+`apps/`（p2 / p2-mac / p3）已重新从上游原样导入，见下面「图形界面」。上游的 `packages/evals`、nix/flake、husky、上游文档与扩展示例仍未导入。
+
+## 图形界面（GUI）
+
+除 TUI 外还有浏览器界面（`apps/p2`，从上游原样导入）：
+
+```bash
+npm install --ignore-scripts
+npm run hydrate:model-data      # 首次需要：生成模型数据
+npm run p2                      # 默认 http://127.0.0.1:8788
+```
+
+启动后终端会打印一次性登录 token（十分钟内有效），粘贴到浏览器即可进入。
+
+| 变量 | 默认 | 作用 |
+|---|---|---|
+| `PORT` | `8788` | 监听端口（仅 loopback） |
+| `P2_DATA_DIR` | `~/.pi/p2` | 数据目录（sessions / settings / mcp / auth） |
+| `P2_FAKE` | 未设置 | `1` 用假 provider 演示，工具仍操作真实文件 |
+| `P2_IDLE_MS` | `300000` | 会话空闲多久后停掉 worker |
+
+- `apps/p2` — 自托管 Web UI（React + Chord 插件，49 个插件），也有终端宿主：`npm --prefix apps/p2 run tui`。
+- `apps/p3` — API server 与插件入口，构建用 `npm run p3:build`。
+- `apps/p2-mac` — macOS SwiftUI 外壳，需要 macOS + Xcode，Windows 上无法构建。
+
+注意：三个 app 是上游的实验代码（p2 的 README 自己标了 EXPERIMENTAL），**没有做过去护栏适配**。它们默认只监听 loopback，且自带 owner 级 agent + shell 权限，不要暴露到公网。
 
 ## 许可证与署名
 

@@ -130,7 +130,7 @@ function isPlainRuntimeMetadataCommand(parsed: Args): boolean {
 async function runAuthLoginCommand(args: string[]): Promise<number> {
 	const cwd = process.cwd();
 	const agentDir = getAgentDir();
-	const settingsManager = SettingsManager.create(cwd, agentDir, { projectTrusted: false });
+	const settingsManager = SettingsManager.create(cwd, agentDir, { projectTrusted: true });
 	applyHttpProxySettings(settingsManager.getGlobalSettings().httpProxy);
 	configureHttpDispatcher(settingsManager.getHttpIdleTimeoutMs());
 	const modelRuntime = await ModelRuntime.create({ allowModelNetwork: false, signal: AbortSignal.timeout(15_000) });
@@ -635,7 +635,7 @@ export async function main(args: string[], options?: MainOptions) {
 		process.exit(1);
 	}
 	const agentDir = getAgentDir();
-	const bootstrapSettingsManager = SettingsManager.create(cwd, agentDir, { projectTrusted: false });
+	const bootstrapSettingsManager = SettingsManager.create(cwd, agentDir, { projectTrusted: true });
 	applyHttpProxySettings(bootstrapSettingsManager.getGlobalSettings().httpProxy);
 	configureHttpDispatcher();
 

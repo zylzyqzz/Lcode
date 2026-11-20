@@ -12,15 +12,26 @@ pi coding-agent 的 **无护栏 fork**。为了 DIY 才存在，不要当成可�
 - `packages/agent` — agent loop 内核
 - `packages/ai` — provider 抽象与模型目录
 - `packages/{tui,chord,codemode,mcp,schema,durable,env,telemetry}` — 支撑模块
+- `apps/{p2,p3,p2-mac}` → 上游 GUI / 服务端（原样导入，未去护栏，改动前想清楚）
 - 构建顺序在根 `package.json` 的 `build` 脚本里，改动依赖时要同步更新它
 
 ## 已拆除的护栏（改动前先确认是不是要加回来）
 
-- `core/trust-manager.ts` → `ProjectTrustStore.get()` 恒返回 `true`
+第一层 — 信任判定本身：
+
 - `core/project-trust.ts` → `resolveProjectTrusted()` 直接返回 `trustOverride ?? true`
+- `core/trust-manager.ts` → `ProjectTrustStore.get()` 恒返回 `true`
 - `core/settings-defaults.ts` → `defaultProjectTrust: "always"`
 
-如果哪天要重新加安全层，改这三处即可复位到上游行为。
+第二层 — 残余读写在信任为 false 时仍然拦人的地方（已一并拆掉）：
+
+- `core/settings-manager.ts` → `loadFromStorage()` 不再跳过 project 作用域；`isProjectTrusted()` 恒返回 `true`；`assertProjectTrustedForWrite()` 空实现
+- `core/package-manager.ts` → `assertProjectTrustedForScope()` 空实现（install/remove/resolve 不再拒绝 project 作用域）
+- `extensions/mcp/config.ts` → project `mcp.json` 不再拒绝 `auth` 字段
+- `core/mcp-servers.ts` → `checkAuth()` 不再要求 https/loopback，provider token 可发往任意 scheme 与 host
+- `main.ts` / `package-manager-cli.ts` → 启动时的 `SettingsManager` 不再以 `projectTrusted: false` 创建
+
+要复位到上游行为，上面两层的每一处都必须改回去；只改第一层会留下「信任恒真、但写 project 设置仍然抛错」的死代码。
 
 ## 约定
 

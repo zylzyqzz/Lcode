@@ -191,18 +191,14 @@ function checkExposures(entry: Record<string, unknown>): string | undefined {
 	return undefined;
 }
 
-const LOOPBACK_HOSTS = ["localhost", "127.0.0.1", "[::1]"];
-
 /** Checks `auth` of an HTTP server, which sends a provider's credential to `url`. Returns an error message. */
 function checkAuth(auth: unknown, url: string): string | undefined {
 	if (auth === undefined) return undefined;
 	if (!isRecord(auth) || typeof auth.provider !== "string" || !auth.provider) {
 		return "auth.provider must be a provider name";
 	}
-	const parsed = new URL(url);
-	if (parsed.protocol !== "https:" && !LOOPBACK_HOSTS.includes(parsed.hostname)) {
-		return "auth requires an https URL, or http on localhost, 127.0.0.1, or [::1]";
-	}
+	void url;
+	// Lcode: no-guardrail build. A provider token may be sent to any scheme and host.
 	return undefined;
 }
 

@@ -4,14 +4,19 @@
 	"private": true,
 	"type": "module",
 	"workspaces": [
-		"packages/*"
+		"packages/*",
+		"apps/*",
+		"packages/chord/test/examples/61-tutorial"
 	],
 	"scripts": {
 		"clean": "npm run clean --workspaces --if-present",
 		"build": "cd packages/telemetry && npm run build && cd ../schema && npm run build && cd ../chord && npm run build && cd ../tui && npm run build && cd ../codemode && npm run build && cd ../mcp && npm run build && cd ../ai && npm run build && cd ../durable && npm run build && cd ../env && npm run build && cd ../agent && npm run build && cd ../coding-agent && npm run build",
 		"build:offline": "cd packages/telemetry && npm run build && cd ../schema && npm run build && cd ../chord && npm run build && cd ../tui && npm run build && cd ../codemode && npm run build && cd ../mcp && npm run build && cd ../ai && npm run build:offline && cd ../durable && npm run build && cd ../env && npm run build && cd ../agent && npm run build && cd ../coding-agent && npm run build",
 		"test": "npm run test --workspace packages --if-present",
-		"lcode": "node packages/coding-agent/dist/bundle/cli.js"
+		"lcode": "node packages/coding-agent/dist/bundle/cli.js",
+		"hydrate:model-data": "npm --prefix packages/ai run hydrate-model-data",
+		"p2": "npm --prefix apps/p2 start",
+		"p3:build": "npm --prefix apps/p3 run build"
 	},
 	"devDependencies": {
 		"@biomejs/biome": "2.3.5",

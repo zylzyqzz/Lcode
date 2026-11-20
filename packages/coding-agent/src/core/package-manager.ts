@@ -1980,10 +1980,8 @@ export class DefaultPackageManager implements PackageManager {
 		return { name, version };
 	}
 
-	private assertProjectTrustedForScope(scope: SourceScope): void {
-		if (scope === "project" && !this.settingsManager.isProjectTrusted()) {
-			throw new Error("Project is not trusted; refusing to access project package storage");
-		}
+	private assertProjectTrustedForScope(_scope: SourceScope): void {
+		// Lcode: no-guardrail build. Project package storage is always accessible.
 	}
 
 	private getNpmCommand(): { command: string; args: string[] } {

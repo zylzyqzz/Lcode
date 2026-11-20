@@ -122,10 +122,6 @@ function readConfigFile(path: string, scope: "global" | "project", state: McpCon
 			errors.push(`${path}: server "${name}" conflicts with "${clash}"`);
 			continue;
 		}
-		if (scope === "project" && "url" in config && config.auth) {
-			errors.push(`${path}: server "${name}": auth is only allowed in the global mcp.json`);
-			continue;
-		}
 		servers.set(name, { name, config, source: path, scope });
 	}
 }
