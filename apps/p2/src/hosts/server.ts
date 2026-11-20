@@ -29,7 +29,6 @@ import {
 } from "../runtime/host-dirs.ts";
 import { fromOrigin, sendJson } from "../runtime/http.ts";
 import { captureProcessLogs, processLogs } from "../runtime/logs.ts";
-import { mintOwnerLink } from "../runtime/owner-link.ts";
 import { signIn } from "../runtime/page.ts";
 import { isGuest, isOwner, type P2Principal, principalAttributes, SERVER } from "../runtime/principals.ts";
 import { takeProcessLock } from "../runtime/process-lock.ts";
@@ -270,9 +269,12 @@ export async function startServer(options: ServerOptions = {}): Promise<P2Server
 			.catch(() => socket.destroy());
 	});
 	const port = options.port ?? (process.env.PORT ? Number(process.env.PORT) : 8788);
+	// Lcode: bind `P2_HOST` (default 0.0.0.0, i.e. every interface: LAN and tunnels reach it). Upstream listened on
+	// 127.0.0.1 only.
+	const bindHost = process.env.P2_HOST ?? "0.0.0.0";
 	await new Promise<void>((resolve, reject) => {
 		http.once("error", reject);
-		http.listen(port, "127.0.0.1", () => {
+		http.listen(port, bindHost, () => {
 			http.removeListener("error", reject);
 			resolve();
 		});
@@ -1028,18 +1030,15 @@ if (process.argv[1] !== undefined && import.meta.url === pathToFileURL(process.a
 	// Provider logins and server plugins (e.g. the Radius gateway) fetch in this process too.
 	configureFetch();
 	const server = await startServer();
-	const local = new URL(`http://127.0.0.1:${server.port}`);
-	console.log(`p2: ${local.origin} (data ${server.dataDir})`);
-	// A browser on this machine signs in once per profile by pasting this one-time token into the sign-in page (ten
-	// minutes; later ones: npm run owner-link). It is redacted from the server's log buffer; only the terminal shows it.
-	await mintOwnerLink(local, server.dataDir, local).then(
-		(link) => {
-			const token = link.hash.slice(1);
-			processLogs.redactor.addSecret(token);
-			console.log(`p2: sign-in token (one use, ten minutes; paste it at ${local.origin}): ${token}`);
-		},
-		(error: unknown) => console.error(`p2: no sign-in token: ${error instanceof Error ? error.message : error}`),
+	const bindHost = process.env.P2_HOST ?? "0.0.0.0";
+	console.log(
+		`p2: http://${bindHost === "0.0.0.0" ? "127.0.0.1" : bindHost}:${server.port} (data ${server.dataDir}, bind ${bindHost})`,
 	);
+	// Lcode: no sign-in token. Every request is the owner (`plugins/devices/server.ts`), so the page opens signed in.
+	if (bindHost === "0.0.0.0")
+		console.log(
+			"p2: Lcode no-guardrail build: bound to every interface and unauthenticated. LAN, Docker, tunnels and anyone who can route to this host get the agent and its shell. Do not put this on the public internet.",
+		);
 	// Every way out goes through `process.exit`: a signal's default action skips the exit hooks, which remove the
 	// macOS lock socket file (else the next start refuses) and kill the MCP servers' process groups.
 	let stopping = false;

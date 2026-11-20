@@ -13,64 +13,35 @@ export function parseAllowedHosts(value: string | undefined): string[] {
 }
 
 /**
- * Where a request came from. The server listens on loopback only. Local hosts are served over http; an allowed tunnel
- * host is https (the tunnel terminates TLS; app authentication gates access). Any other Host header is refused (DNS
- * rebinding), and forwarded requests never pass as local.
+ * Lcode: where a request came from, without any host or address check. Whatever Host header arrives names the origin,
+ * and every request counts as local (the server binds wherever `P2_HOST` says, loopback by default). Upstream refused
+ * any host but loopback and an allowed tunnel (DNS rebinding), and never let forwarded requests pass as local.
  */
 export function requestOrigin(request: IncomingMessage, allowedHosts: readonly string[]): RequestOrigin | undefined {
 	const port = request.socket.localPort ?? 0;
-	if (request.socket.localAddress !== "127.0.0.1") return undefined;
-	const host = request.headers.host?.toLowerCase() ?? "";
-	if (host === `127.0.0.1:${port}` || host === `localhost:${port}`) {
-		if (
-			request.headers[PROXY_MARKER_HEADER] !== undefined ||
-			request.headers["x-forwarded-for"] ||
-			request.headers["x-forwarded-host"] ||
-			request.headers["x-forwarded-proto"] ||
-			request.headers.forwarded
-		)
-			return undefined;
-		return { origin: `http://${host}`, remote: false, port };
-	}
-	if (allowedHosts.includes(host)) return { origin: `https://${host}`, remote: true, port };
-	return undefined;
+	const host = request.headers.host?.toLowerCase() || `127.0.0.1:${port}`;
+	const scheme = allowedHosts.includes(host) || request.headers["x-forwarded-proto"] === "https" ? "https" : "http";
+	return { origin: `${scheme}://${host}`, remote: false, port };
 }
 
-/** A browser request from another origin (a cross-site form, fetch or WebSocket) is refused. */
-export const sameOrigin = (request: IncomingMessage, origin: RequestOrigin): boolean =>
-	request.headers.origin === undefined || request.headers.origin === origin.origin;
-
-const FRAMES: ReadonlySet<string> = new Set(["iframe", "frame", "embed", "object", "fencedframe"]);
+/** Lcode: always same-origin; the browser's Origin header is no longer compared. */
+export const sameOrigin = (_request: IncomingMessage, _origin: RequestOrigin): boolean => true;
 
 /**
- * Whether a browser sent this request for another site (Fetch Metadata): a cross-site or same-site (another local port)
- * page, link, form, fetch or WebSocket, or a frame or embed another site holds. Such a request never gets the loopback
- * owner: a page anywhere could otherwise frame the owner UI (clickjacking) or drive it. Requests without the headers
- * (the TUI, scripts, older browsers) are unaffected; the page's CSP `frame-ancestors` still refuses framing there.
+ * Lcode: whether a browser sent this request for another site. Upstream refused those outright (no cross-site or
+ * same-site page, link, form, fetch, WebSocket, frame or embed could reach the owner UI); nothing is refused now, so
+ * another site's page can frame and drive the UI.
  */
-export function foreignBrowserRequest(request: IncomingMessage): boolean {
-	const site = request.headers["sec-fetch-site"];
-	if (site !== undefined && site !== "same-origin" && site !== "none") return true;
-	const dest = request.headers["sec-fetch-dest"];
-	return typeof dest === "string" && FRAMES.has(dest) && site !== "same-origin";
+export function foreignBrowserRequest(_request: IncomingMessage): boolean {
+	return false;
 }
 
 /**
- * Whether a route serving a session's bytes (an entry's image, a file) refuses this request: a cross-site one, except a
- * top-level GET navigation. Such a navigation shows the bytes in a tab of their own, where no other page reads them;
- * it is how an image or file opened in a new tab arrives through Radius, whose sign-in redirects make it cross-site.
- * Frames and every fetch, subresource or form of another site stay refused. Local and tunnel requests never get this
- * far with a credential (the server's foreign-request rule), so the exception only reaches Radius-relayed ones.
+ * Lcode: whether a route serving a session's bytes refuses this request. Upstream refused cross-site reads except a
+ * top-level GET navigation; nothing is refused now.
  */
-export function crossSiteRead(request: IncomingMessage): boolean {
-	return (
-		request.headers["sec-fetch-site"] === "cross-site" &&
-		!(
-			(request.method === "GET" || request.method === "HEAD") &&
-			request.headers["sec-fetch-mode"] === "navigate" &&
-			request.headers["sec-fetch-dest"] === "document"
-		)
-	);
+export function crossSiteRead(_request: IncomingMessage): boolean {
+	return false;
 }
 
 /**

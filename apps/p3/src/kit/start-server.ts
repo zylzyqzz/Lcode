@@ -22,6 +22,7 @@ import { openConfig, type PiConfig, writeConfig } from "./config.ts";
 import { identityFacet } from "./identity.ts";
 import { appInfoFacet } from "./info.ts";
 import { createLayout, defaultDataDir, type Layout, openDataDir, privateStore } from "./layout.ts";
+import { noGateFacet } from "./no-gate.ts";
 import { OwnerLink, ownerFacet, ownerTokenFile } from "./owner.ts";
 import { removeRecord, takeLock, writeRecord } from "./running.ts";
 import { secretFile } from "./secrets.ts";
@@ -136,6 +137,7 @@ export async function startServer(options: ServerOptions, context: Context): Pro
 	let ownerToken = "";
 	const core = [
 		{ name: "chord.http", facet: http.facet },
+		{ name: "p3.no-gate", facet: noGateFacet },
 		{ name: "p3.info", facet: appInfoFacet({ dataDir: layout.dataDir, name: NAME, version: API.versions[0]! }) },
 		{ name: "p3.sign-ins", facet: signIns.facet },
 		{ name: "p3.owner", facet: ownerFacet(link) },

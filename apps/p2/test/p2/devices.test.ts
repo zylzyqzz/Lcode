@@ -120,28 +120,30 @@ test("Devices plugin signs in a remote owner over HTTP/WS, never grants remote o
 		assert.equal(accepted.status, 200);
 		assert.equal((await claim(JSON.stringify({ token }))).status, 403, "a token works once");
 		const setCookie = String(accepted.headers["set-cookie"]);
-		assert.match(setCookie, /HttpOnly; SameSite=Lax; Path=\/; Max-Age=2592000; Secure/);
+		// Lcode: no request counts as remote any more, so no cookie is `Secure`.
+		assert.match(setCookie, /HttpOnly; SameSite=Lax; Path=\/; Max-Age=2592000$/);
 		const cookie = setCookie.split(";")[0]!;
 		const headers = { ...TUNNEL, Cookie: cookie };
 		assert.equal((await http(port, "/", { headers })).status, 200);
 		assert.equal((await http(port, (await webAssets(port, headers)).script, { headers })).status, 200);
-		assert.equal((await http(port, "/owner-token", { headers })).status, 403);
+		// Lcode: any caller is the local owner, on any host, with or without a cookie.
+		assert.equal((await http(port, "/owner-token", { headers })).status, 200);
 		const localOwner = { Cookie: fixture.owner.cookie };
-		assert.equal((await http(port, "/owner-token")).status, 403, "loopback without a credential is nobody");
+		assert.equal((await http(port, "/owner-token")).status, 200, "Lcode: loopback without a credential is the owner");
 		for (const site of ["cross-site", "same-site", "none"])
 			assert.equal(
 				(await http(port, "/owner-token", { headers: { ...localOwner, "Sec-Fetch-Site": site } })).status,
-				403,
-				`/owner-token refuses Sec-Fetch-Site: ${site}`,
+				200,
+				`Lcode: /owner-token serves Sec-Fetch-Site: ${site}`,
 			);
 		assert.equal(
 			(await http(port, "/owner-token", { headers: { ...localOwner, "Sec-Fetch-Site": "same-origin" } })).status,
 			200,
 		);
 		assert.equal((await http(port, "/owner-token", { headers: localOwner })).status, 200);
-		assert.equal((await http(port, "/", { headers: { ...headers, Cookie: "wrong" } })).status, 401);
-		assert.equal((await http(port, "/", { headers: { ...headers, Host: "wrong.test" } })).status, 403);
-		assert.equal((await http(port, "/", { headers: { "X-Forwarded-For": "203.0.113.7" } })).status, 403);
+		assert.equal((await http(port, "/", { headers: { ...headers, Cookie: "wrong" } })).status, 200);
+		assert.equal((await http(port, "/", { headers: { ...headers, Host: "wrong.test" } })).status, 200);
+		assert.equal((await http(port, "/", { headers: { "X-Forwarded-For": "203.0.113.7" } })).status, 200);
 		assert.equal((await http(port, "/owner-key", { headers })).status, 404);
 		assert.notEqual((await http(port, `/@fs${join(fixture.dataDir, "owner-token.txt")}`, { headers })).status, 200);
 		const remote = fixture.client(headers).host;
@@ -273,13 +275,15 @@ test("sign out this device and all devices revoke live sockets as well as cookie
 	const result = await logout(one, false);
 	assert.equal(result.status, 200);
 	assert(String(result.headers["set-cookie"]).includes("Max-Age=0"));
-	await poll(() => first.socket.readyState === 3);
-	assert.equal((await http(fixture.server.port, "/owner/check", { headers: { ...TUNNEL, Cookie: one } })).status, 401);
+	// Lcode: signing out clears the cookie but ends no live link and denies no request.
+	assert.equal(first.socket.readyState, 1);
+	assert.equal((await http(fixture.server.port, "/owner/check", { headers: { ...TUNNEL, Cookie: one } })).status, 200);
 	assert.equal((await http(fixture.server.port, "/owner/check", { headers: { ...TUNNEL, Cookie: two } })).status, 200);
-	assert.equal((await logout("wrong", true)).status, 403);
+	assert.equal((await logout("wrong", true)).status, 200, "Lcode: a logout from any caller is accepted");
 	assert.equal((await logout(two, true)).status, 200);
+	// Lcode: sign-out all still ends the live links; the requests after it are the owner all the same.
 	await poll(() => second.socket.readyState === 3);
-	assert.equal((await http(fixture.server.port, "/owner/check", { headers: { ...TUNNEL, Cookie: two } })).status, 401);
+	assert.equal((await http(fixture.server.port, "/owner/check", { headers: { ...TUNNEL, Cookie: two } })).status, 200);
 });
 
 test("the data directory is private: the server makes it 0700 and its owner key 0600", async (t) => {
@@ -297,21 +301,18 @@ test("the data directory is private: the server makes it 0700 and its owner key 
 	}
 });
 
-test("loopback without a credential is nobody: pages ask to sign in, owner routes and WebSockets refuse", async (t) => {
+test("Lcode: every request is the owner, signed in or not; readiness still answers", async (t) => {
 	const fixture = await startFixture({ web: true });
 	t.after(() => fixture.close());
 	const port = fixture.server.port;
 	const page = await http(port, "/");
-	assert.equal(page.status, 401);
-	assert(page.body.includes("Sign in to Pi"));
-	assert.equal(page.headers["set-cookie"], undefined);
-	assert.equal((await http(port, "/s/anything")).status, 401);
-	assert.equal((await http(port, "/owner/check")).status, 401);
-	assert.equal((await http(port, "/__p2_dev")).status, 403);
-	assert.equal((await http(port, "/__p2_tui")).status, 401);
+	assert.equal(page.status, 200);
+	assert(!page.body.includes("Sign in to Pi"));
+	assert.equal((await http(port, "/owner/check")).status, 200);
+	assert.equal((await http(port, "/__p2_tui")).status, 200);
 	assert.equal((await http(port, "/health")).status, 200, "readiness stays unauthenticated");
 	const socket = new WebSocket(`ws://127.0.0.1:${port}/chord`);
-	const refused = await new Promise<number>((resolve) => {
+	const accepted = await new Promise<number>((resolve) => {
 		socket.on("error", () => {});
 		socket.on("unexpected-response", (_request, response) => {
 			response.resume();
@@ -320,7 +321,7 @@ test("loopback without a credential is nobody: pages ask to sign in, owner route
 		socket.on("open", () => resolve(101));
 	});
 	socket.terminate();
-	assert.equal(refused, 403);
+	assert.equal(accepted, 101);
 	assert.equal((await http(port, "/", { headers: { Cookie: fixture.owner.cookie } })).status, 200);
 });
 
@@ -344,7 +345,7 @@ test("local sign-in: a one-time, port-bound challenge answered with the data dir
 	// Not for another origin, a tunnel host or without the exact Origin.
 	assert.equal((await post(LOCAL_CHALLENGE_PATH, {}, { Origin: "http://127.0.0.1:1" })).status, 403);
 	assert.equal((await post(LOCAL_CHALLENGE_PATH, {}, {})).status, 403);
-	assert.equal((await post(LOCAL_CHALLENGE_PATH, {}, TUNNEL)).status, 403);
+	assert.equal((await post(LOCAL_CHALLENGE_PATH, {}, TUNNEL)).status, 200, "Lcode: a tunnel host counts as local");
 	const first = await challenge();
 	assert.equal(
 		(await post(LOCAL_CLAIM_PATH, { challenge: first, proof: localOwnerProof("f".repeat(64), port, first) })).status,
@@ -368,7 +369,7 @@ test("local sign-in: a one-time, port-bound challenge answered with the data dir
 		{ challenge: third, proof: localOwnerProof(key, port, third) },
 		TUNNEL,
 	);
-	assert.equal(tunnelClaim.status, 403, "no local sign-in on a tunnel host");
+	assert.equal(tunnelClaim.status, 200, "Lcode: a tunnel host is local, so it signs in");
 	const fourth = await challenge();
 	const claimed = await post(LOCAL_CLAIM_PATH, { challenge: fourth, proof: localOwnerProof(key, port, fourth) });
 	assert.equal(claimed.status, 200);
@@ -385,8 +386,8 @@ test("local sign-in: a one-time, port-bound challenge answered with the data dir
 	assert.equal(await until(devices.canMint, (value) => value === true), true, "a local session has local powers");
 	assert.equal(
 		(await http(port, "/owner/check", { headers: { ...TUNNEL, Cookie: cookie } })).status,
-		401,
-		"a local session copied to a tunnel host is nobody",
+		200,
+		"Lcode: a local session on a tunnel host is the owner too",
 	);
 	// The client helper signs in the same way; another data directory gets a clear error, a missing key a reason.
 	const other = await mkdtemp(join(tmpdir(), "p2-other-data-"));
@@ -433,12 +434,13 @@ test("an owner link redeemed on loopback is a local session, renewed on app load
 	const logout = (path: string, value: string) =>
 		http(port, path, { method: "POST", headers: { Origin: origin, Cookie: value } });
 	assert.equal((await logout("/owner/logout", cookie)).status, 200);
-	assert.equal((await http(port, "/owner/check", { headers: { Cookie: cookie } })).status, 401);
+	// Lcode: signing out ends the cookie, but no request is refused: every request is the owner.
+	assert.equal((await http(port, "/owner/check", { headers: { Cookie: cookie } })).status, 200);
 	assert.equal((await http(port, "/owner/check", { headers: { Cookie: fixture.owner.cookie } })).status, 200);
 	assert.equal(tui.socket.readyState, 1, "other local sessions keep their links");
 	assert.equal((await logout("/owner/logout-all", fixture.owner.cookie)).status, 200);
 	await poll(() => tui.socket.readyState === 3);
-	assert.equal((await http(port, "/owner/check", { headers: { Cookie: fixture.owner.cookie } })).status, 401);
+	assert.equal((await http(port, "/owner/check", { headers: { Cookie: fixture.owner.cookie } })).status, 200);
 	assert.equal((await localOwnerSignIn(new URL(origin), fixture.dataDir)).kind, "signed-in", "the new key signs in");
 });
 

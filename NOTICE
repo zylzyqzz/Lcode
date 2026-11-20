@@ -29,6 +29,18 @@ Local modifications (Lcode):
       - apps/p2-mac  macOS SwiftUI shell
     These are upstream experimental code and do not carry the Lcode
     no-guardrail changes; they keep upstream behaviour.
+  * Removed the sign-in gate of the re-imported apps (2026-11-19):
+      - apps/p2/plugins/devices/server.ts
+          the owner authenticator returns an owner principal for every request; /owner-token mints for anyone.
+      - apps/p2/src/hosts/principals.ts
+          requestOrigin() accepts any Host and treats every request as local; sameOrigin() is always true;
+          foreignBrowserRequest() and crossSiteRead() always return false.
+      - apps/p2/src/hosts/server.ts
+          listens on P2_HOST (default 0.0.0.0, upstream: 127.0.0.1 only) and no longer mints a startup sign-in token.
+      - apps/p3/src/kit/no-gate.ts (new), wired in src/kit/start-server.ts; apps/p3/src/bootstrap/server.ts
+          every p3 request is the owner; listens on P3_HOST (default 0.0.0.0, upstream: 127.0.0.1 only).
+    Upstream's auth-contract tests still assert the removed gate and are not updated wholesale; devices.test.ts,
+    foreign-requests.test.ts and health.test.ts were updated, the remaining ones are listed in README.
   * Removed packages/evals, nix/flake,
     husky hooks, upstream docs and extension examples.
 

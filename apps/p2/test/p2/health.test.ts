@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { it } from "node:test";
 import { http, startFixture } from "./helpers.ts";
 
-it("serves /health without signing in (known hosts only), and the app manifest", async (t) => {
+it("serves /health without signing in (any host), and the app manifest", async (t) => {
 	const fixture = await startFixture({ web: true, allowedHosts: ["share.test"] });
 	t.after(() => fixture.close());
 	const port = fixture.server.port;
@@ -14,7 +14,8 @@ it("serves /health without signing in (known hosts only), and the app manifest",
 		assert.equal(health.status, 200);
 		assert.deepEqual(JSON.parse(health.body), { ok: true, name: "p2" });
 	}
-	assert.equal((await http(port, "/health", { headers: { Host: "evil.test" } })).status, 403);
+	// Lcode: no host allowlist; an unknown Host is served like loopback.
+	assert.equal((await http(port, "/health", { headers: { Host: "evil.test" } })).status, 200);
 	const manifest = await http(port, "/manifest.webmanifest");
 	assert.equal(manifest.status, 200);
 	assert.equal((JSON.parse(manifest.body) as { name: string }).name, "Pi");

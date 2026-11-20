@@ -39,11 +39,12 @@ export default defineFacet((host) => {
 				return accessResource.value;
 			},
 		});
-		// A local session counts only on loopback: a copied cookie on a tunnel host or through Radius is nobody.
+		// Lcode: no sign-in gate. Every request is the owner and holds the local owner's powers (there is no token to
+		// paste, no cookie to redeem). A device cookie is still honoured, so per-device revocation keeps working.
 		const principal = (request: IncomingMessage, origin: RequestOrigin): P2Principal | undefined => {
 			const session = accessResource.value.session(request, origin.port);
 			if (session?.kind === "device") return { kind: "owner", access: "device", device: session.id };
-			return session?.kind === "local" && !origin.remote ? { kind: "owner", access: "local" } : undefined;
+			return { kind: "owner", access: "local" };
 		};
 		self.contribute(Authenticators, { owner: (request, origin) => principal(request, origin) });
 		// A valid owner cookie takes precedence over a pre-existing guest cookie. Host checks still apply.
@@ -132,19 +133,11 @@ export default defineFacet((host) => {
 			},
 			"POST /owner/logout": (request, response, access, ctx) => logout(request, response, access, false, ctx),
 			"POST /owner/logout-all": (request, response, access, ctx) => logout(request, response, access, true, ctx),
-			// Only a local owner's own request: no browser fetch of another origin, not even of this site.
+			// Lcode: any request mints a token; upstream served only a local owner's own same-origin fetch.
 			"GET /owner-token": (request, response, { principal, origin }) => {
-				const site = request.headers["sec-fetch-site"];
-				if (
-					!isOwner(principal) ||
-					principal.access !== "local" ||
-					origin.remote ||
-					(site !== undefined && site !== "same-origin")
-				) {
-					response.writeHead(403);
-					response.end("Forbidden");
-					return;
-				}
+				void request;
+				void principal;
+				void origin;
 				sendJson(response, 200, { token: accessResource.value.issueToken() });
 			},
 			// On loopback the claim is a local session: the invitation came from a local owner to someone at this machine.

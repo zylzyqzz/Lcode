@@ -16,7 +16,8 @@ export function startP3(
 	context: Context,
 	options: { readonly onStop: () => void; readonly dataDir?: string; readonly root?: string; readonly port?: number },
 ): Promise<App> {
-	const host = "127.0.0.1";
+	// Lcode: bind every interface unless P3_HOST says otherwise; upstream listened on loopback only.
+	const host = process.env.P3_HOST ?? "0.0.0.0";
 	return startServer(
 		{
 			...(options.dataDir === undefined ? {} : { dataDir: options.dataDir }),

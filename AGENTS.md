@@ -13,6 +13,7 @@ pi coding-agent 的 **无护栏 fork**。为了 DIY 才存在，不要当成可�
 - `packages/ai` — provider 抽象与模型目录
 - `packages/{tui,chord,codemode,mcp,schema,durable,env,telemetry}` — 支撑模块
 - `apps/{p2,p3,p2-mac}` → 上游 GUI / 服务端（原样导入，未去护栏，改动前想清楚）
+- apps 也已经拆门：`apps/p2/plugins/devices/server.ts` 的 principal 恒为 owner，`apps/p2/src/hosts/principals.ts` 不再校验 Host/Origin/Fetch Metadata，`apps/p2/src/hosts/server.ts` 监听从 `P2_HOST`（默认 `0.0.0.0`）；`apps/p3/src/kit/no-gate.ts` 给 p3 加了恒 owner 的 authenticator。
 - 构建顺序在根 `package.json` 的 `build` 脚本里，改动依赖时要同步更新它
 
 ## 已拆除的护栏（改动前先确认是不是要加回来）

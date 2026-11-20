@@ -86,7 +86,7 @@ scripts/           ← 构建辅助脚本
 
 ## 图形界面（GUI）
 
-除 TUI 外还有浏览器界面（`apps/p2`，从上游原样导入）：
+除 TUI 外还有浏览器界面（`apps/p2`，从上游导入后拆了登录门）：
 
 ```bash
 npm install --ignore-scripts
@@ -94,11 +94,12 @@ npm run hydrate:model-data      # 首次需要：生成模型数据
 npm run p2                      # 默认 http://127.0.0.1:8788
 ```
 
-启动后终端会打印一次性登录 token（十分钟内有效），粘贴到浏览器即可进入。
+启动后直接打开 `http://127.0.0.1:8788` 就是 owner，没有登录页（Lcode 拆了登录门，见下）。
 
 | 变量 | 默认 | 作用 |
 |---|---|---|
-| `PORT` | `8788` | 监听端口（仅 loopback） |
+| `PORT` | `8788` | 监听端口 |
+| `P2_HOST` | `0.0.0.0` | 绑定地址（上游是 `127.0.0.1`）|
 | `P2_DATA_DIR` | `~/.pi/p2` | 数据目录（sessions / settings / mcp / auth） |
 | `P2_FAKE` | 未设置 | `1` 用假 provider 演示，工具仍操作真实文件 |
 | `P2_IDLE_MS` | `300000` | 会话空闲多久后停掉 worker |
@@ -107,7 +108,16 @@ npm run p2                      # 默认 http://127.0.0.1:8788
 - `apps/p3` — API server 与插件入口，构建用 `npm run p3:build`。
 - `apps/p2-mac` — macOS SwiftUI 外壳，需要 macOS + Xcode，Windows 上无法构建。
 
-注意：三个 app 是上游的实验代码（p2 的 README 自己标了 EXPERIMENTAL），**没有做过去护栏适配**。它们默认只监听 loopback，且自带 owner 级 agent + shell 权限，不要暴露到公网。
+**测试状态**：`apps/p2`、`apps/p3` 的 `npx tsc --noEmit` 通过。已把 `foreign-requests.test.ts`、`health.test.ts`、`devices.test.ts` 改成断言新行为；`devices.test.ts` 剩下的 4 个失败是 Windows 环境问题（POSIX 文件模式、`spawn npm` 找不到 `npm.cmd`）。`web.test.ts`、`loopback-join.test.ts` 等仍断言被拆掉的登录/来源门，没有逐条改。
+
+Lcode 已经把这三个 app 的**登录门拆了**（老规矩）：
+
+- 任何请求都是 owner：没有一次性 token，没有 cookie 交换，打开 http://127.0.0.1:8788 直接进。
+- 不再按 Host / 来源校验：任意 `Host`、任意站点的 fetch、iframe、WebSocket 都放行；`X-Forwarded-*` 也当作本机。
+- 监听 `P2_HOST`（默认 `0.0.0.0`，即所有网卡，局域网/手机/容器直接可连）；p3 用 `P3_HOST`。
+- 上游的 guest 隔离（受限 worker、权限降级）代码仍在，但已经没有 guest 这条路径了：所有连接都是 owner。
+
+注意：三个 app 是上游的实验代码（p2 的 README 自己标了 EXPERIMENTAL），**没有做过去护栏适配**。它们自带 owner 级 agent + shell 权限（就是本机的 shell），别挂公网。
 
 ## 许可证与署名
 
