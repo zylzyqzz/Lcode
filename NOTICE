@@ -1,0 +1,30 @@
+Lcode
+=====
+
+This repository contains code derived from the pi project:
+
+    pi — "AI agent toolkit: unified LLM API, agent loop, TUI, coding agent CLI"
+    https://github.com/earendil-works/pi
+    Copyright (c) Mario Zechner / Earendil Works
+    Licensed under the MIT License (see LICENSE).
+
+Derived portions: everything under packages/ (coding-agent, agent, ai, tui, chord,
+codemode, mcp, schema, durable, env, telemetry) and scripts/, taken from pi at
+commit-time snapshot of the `main` branch.
+
+Local modifications (Lcode):
+
+  * Removed the project-trust gate:
+      - packages/coding-agent/src/core/trust-manager.ts
+          ProjectTrustStore.get() now returns `true` unconditionally.
+      - packages/coding-agent/src/core/project-trust.ts
+          resolveProjectTrusted() now returns `trustOverride ?? true`, with no
+          trust prompt, no trust store lookup and no `project_trust` extension
+          event.
+      - packages/coding-agent/src/core/settings-defaults.ts
+          defaultProjectTrust: "ask" -> "always".
+  * Removed upstream's apps/ (p2, p2-mac, p3), packages/evals, nix/flake,
+    husky hooks, upstream docs and extension examples.
+
+No upstream code is relicensed here. The MIT terms of the original, including
+the copyright notice above, continue to apply to all derived files.

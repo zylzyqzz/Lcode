@@ -1,0 +1,30 @@
+{
+	"name": "lcode-monorepo",
+	"version": "0.1.0",
+	"private": true,
+	"type": "module",
+	"workspaces": [
+		"packages/*"
+	],
+	"scripts": {
+		"clean": "npm run clean --workspaces --if-present",
+		"build": "cd packages/telemetry && npm run build && cd ../schema && npm run build && cd ../chord && npm run build && cd ../tui && npm run build && cd ../codemode && npm run build && cd ../mcp && npm run build && cd ../ai && npm run build && cd ../durable && npm run build && cd ../env && npm run build && cd ../agent && npm run build && cd ../coding-agent && npm run build",
+		"build:offline": "cd packages/telemetry && npm run build && cd ../schema && npm run build && cd ../chord && npm run build && cd ../tui && npm run build && cd ../codemode && npm run build && cd ../mcp && npm run build && cd ../ai && npm run build:offline && cd ../durable && npm run build && cd ../env && npm run build && cd ../agent && npm run build && cd ../coding-agent && npm run build",
+		"test": "npm run test --workspace packages --if-present",
+		"lcode": "node packages/coding-agent/dist/bundle/cli.js"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "2.3.5",
+		"@biomejs/wasm-nodejs": "2.3.5",
+		"@types/node": "22.19.19",
+		"esbuild": "0.28.2",
+		"typescript": "7.0.2",
+		"yaml": "2.9.0"
+	},
+	"engines": {
+		"node": ">=22.19.0"
+	},
+	"overrides": {
+		"protobufjs": "7.6.6"
+	}
+}
